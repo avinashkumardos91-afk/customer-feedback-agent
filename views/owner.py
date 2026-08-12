@@ -46,15 +46,29 @@ def render() -> None:
                     # wrong, so it is shown rather than a generic failure.
                     st.error(f"Failed: {error or 'unknown error'}")
         else:
-            missing = [
-                k for k, v in (("SMTP_HOST", cfg.host), ("SMTP_SENDER", cfg.sender))
-                if not v
-            ]
             st.info(
                 "Simulation mode — emails are written to the **Outbox** tab "
-                "instead of being sent, links and all.\n\n"
-                f"To send for real, set: `{'`, `'.join(missing)}`"
+                "instead of being sent, links and all."
             )
+            # Says which specific key is missing rather than "not configured",
+            # which is the difference between fixing it and guessing.
+            with st.expander("Why isn't email sending?"):
+                from core import config
+
+                required = ("SMTP_HOST", "SMTP_SENDER", "SMTP_USER", "SMTP_PASSWORD")
+                for key in required:
+                    found = bool(config.get(key))
+                    st.write(f"{'✅' if found else '❌'} `{key}`")
+                st.caption(
+                    "Values are never shown — only whether the app can see them."
+                )
+                if not any(config.get(k) for k in required):
+                    st.warning(
+                        "None are visible. Either they haven't been added under "
+                        "**Settings → Secrets**, or the app is still running the "
+                        "code from before secrets support was added — use "
+                        "**Manage app → Reboot** to pick up both."
+                    )
         st.caption("**Feedback analysis**")
         from core import llm
         if llm.available():
@@ -453,8 +467,11 @@ def _outbox(cfg: mailer.SMTPConfig) -> None:
         st.info(
             "SMTP isn't configured, so nothing was actually delivered. Every "
             "email below is exactly what the customer would have received — "
-            "open an invite's link to try the feedback conversation yourself."
+            "open an invite's link to try the feedback conversation yourself.\n\n"
+            "To send for real, see **Why isn't email sending?** in the sidebar."
         )
+    else:
+        st.success(f"SMTP is configured — sending as {cfg.sender}.")
 
     kind = st.radio("Show", ["All", "Invites", "Rewards"], horizontal=True)
     clause = {"All": "", "Invites": "WHERE kind = 'invite'", "Rewards": "WHERE kind = 'reward'"}[kind]
