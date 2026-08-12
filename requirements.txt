@@ -1,4 +1,14 @@
-streamlit==1.40.1
-pandas==2.2.3
-openpyxl==3.1.5
-anthropic>=0.40.0
+# Kept deliberately small so cloud builds are fast.
+#
+# streamlit is unpinned: Streamlit Community Cloud ships its own build, and an
+# exact pin forces it to uninstall and reinstall, which is most of the build time.
+streamlit>=1.40
+pandas>=2.0
+openpyxl>=3.1
+
+# anthropic is NOT listed on purpose. core/llm.py imports it inside a
+# try/except and every function falls back to the built-in scorer, so the app
+# is fully functional without it. Add the line below if you want Claude-quality
+# summaries, probing and themes — it roughly doubles the build time:
+#
+#   anthropic>=0.40.0
