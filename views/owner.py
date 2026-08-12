@@ -303,7 +303,15 @@ def _outreach(company: str, cfg: mailer.SMTPConfig) -> None:
         "Send to which products?", products, default=products,
         help="Reach a segment rather than everyone.",
     )
-    skip_sent = st.checkbox("Skip customers already invited in this campaign", value=True)
+    already = db.query_one("SELECT COUNT(DISTINCT customer_id) AS n FROM invites")["n"] or 0
+    skip_sent = st.checkbox(
+        f"Skip customers invited before ({already:,} already have an invite)",
+        value=already == 0,
+        help=(
+            "Checks every past send, not just this one — so nobody is emailed "
+            "twice. Uncheck to send again to everyone."
+        ),
+    )
     recipients = [c for c in customers if c["product"] in picked]
     st.caption(f"{len(recipients):,} customer(s) selected")
 
@@ -372,7 +380,16 @@ def _outreach(company: str, cfg: mailer.SMTPConfig) -> None:
             progress.progress(n / len(recipients))
 
         progress.empty()
-        if cfg.configured:
+
+        if sent == 0 and skipped:
+            # The commonest confusion: everyone was filtered out, so nothing
+            # happened and the success message read as a failure.
+            st.warning(
+                f"Nothing sent — all {skipped:,} recipients already had an "
+                "invite. Untick **Skip customers invited before** above to "
+                "send to them again."
+            )
+        elif cfg.configured:
             st.success(f"Sent {sent:,} · skipped {skipped:,} · failed {failed:,}")
         else:
             st.success(
