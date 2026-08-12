@@ -7,13 +7,12 @@ owner can read exactly what each customer would have received.
 """
 from __future__ import annotations
 
-import os
 import secrets
 import smtplib
 from dataclasses import dataclass
 from email.message import EmailMessage
 
-from core import db
+from core import config, db
 
 DEFAULT_SUBJECT = "How are you finding your {product}, {name}?"
 
@@ -65,13 +64,14 @@ class SMTPConfig:
 
     @classmethod
     def from_env(cls) -> "SMTPConfig":
+        """Reads Streamlit secrets first, then environment variables."""
         return cls(
-            host=os.getenv("SMTP_HOST", ""),
-            port=int(os.getenv("SMTP_PORT", "587") or 587),
-            username=os.getenv("SMTP_USER", ""),
-            password=os.getenv("SMTP_PASSWORD", ""),
-            sender=os.getenv("SMTP_SENDER", ""),
-            use_tls=os.getenv("SMTP_TLS", "true").strip().lower() != "false",
+            host=config.get("SMTP_HOST"),
+            port=config.get_int("SMTP_PORT", 587),
+            username=config.get("SMTP_USER"),
+            password=config.get("SMTP_PASSWORD"),
+            sender=config.get("SMTP_SENDER"),
+            use_tls=config.get_bool("SMTP_TLS", True),
         )
 
 

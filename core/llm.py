@@ -7,18 +7,21 @@ theme extraction, but nothing depends on it being present.
 from __future__ import annotations
 
 import json
-import os
 import re
+
+from core import config
 
 MODEL = "claude-opus-5"
 
 
 def available() -> bool:
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if not config.get("ANTHROPIC_API_KEY"):
         return False
     try:
         import anthropic  # noqa: F401
     except ImportError:
+        # Not in requirements.txt by default — the app falls back to the
+        # built-in scorer, so a missing package is a normal state, not an error.
         return False
     return True
 
@@ -26,7 +29,7 @@ def available() -> bool:
 def _client():
     import anthropic
 
-    return anthropic.Anthropic()
+    return anthropic.Anthropic(api_key=config.get("ANTHROPIC_API_KEY"))
 
 
 def _text(response) -> str:

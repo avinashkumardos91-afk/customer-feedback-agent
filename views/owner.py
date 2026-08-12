@@ -28,12 +28,32 @@ def render() -> None:
         st.divider()
         st.caption("**Email**")
         if cfg.configured:
-            st.success(f"SMTP ready — {cfg.host}")
+            st.success(f"SMTP ready — {cfg.host} as {cfg.sender}")
+            test_to = st.text_input("Send a test email to", value=cfg.sender)
+            if st.button("Send test email") and test_to:
+                oid = mailer.queue_email(
+                    test_to,
+                    f"Test from {st.session_state['company']}",
+                    "If you are reading this, SMTP is working.\n\n"
+                    "Sent from the customer feedback agent.",
+                    kind="invite",
+                )
+                delivered, error = mailer.deliver(oid, cfg)
+                if delivered:
+                    st.success(f"Sent to {test_to} — check the inbox.")
+                else:
+                    # The exact SMTP error is what tells you which setting is
+                    # wrong, so it is shown rather than a generic failure.
+                    st.error(f"Failed: {error or 'unknown error'}")
         else:
+            missing = [
+                k for k, v in (("SMTP_HOST", cfg.host), ("SMTP_SENDER", cfg.sender))
+                if not v
+            ]
             st.info(
-                "Simulation mode. Every email is recorded in the Outbox tab "
-                "instead of being sent. Set SMTP_HOST and SMTP_SENDER to send "
-                "for real."
+                "Simulation mode — emails are written to the **Outbox** tab "
+                "instead of being sent, links and all.\n\n"
+                f"To send for real, set: `{'`, `'.join(missing)}`"
             )
         st.caption("**Feedback analysis**")
         from core import llm
