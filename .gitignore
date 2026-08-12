@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Runtime state — the database is created on first run, never committed
+data/
+logs/
+
+# Local secrets (SMTP + API keys live in Streamlit Cloud's secrets manager)
+.env
+.streamlit/secrets.toml
+
+.pytest_cache/

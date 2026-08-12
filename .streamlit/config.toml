@@ -1,0 +1,15 @@
+# The dashboard paints its own light chart surfaces, so the validated palette
+# holds regardless of the viewer's theme. Pinning light here keeps the rest of
+# the chrome consistent with it.
+[theme]
+base = "light"
+primaryColor = "#3538CD"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F7F7F8"
+textColor = "#18181B"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
