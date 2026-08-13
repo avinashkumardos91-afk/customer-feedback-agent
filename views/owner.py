@@ -62,12 +62,34 @@ def render() -> None:
                 st.caption(
                     "Values are never shown — only whether the app can see them."
                 )
-                if not any(config.get(k) for k in required):
+                # Show which key NAMES the app can actually see. This is what
+                # distinguishes "not added" from "added under a [section]
+                # header" or "misspelled" — three problems that otherwise look
+                # identical from outside. Names only; no value is ever read.
+                try:
+                    visible = sorted(st.secrets.keys())
+                except Exception:
+                    visible = []
+
+                if visible:
+                    st.caption("Keys the app can see in Secrets:")
+                    st.code("\n".join(visible), language=None)
+                    nested = [k for k in visible if k.upper() not in
+                              {"SMTP_HOST", "SMTP_PORT", "SMTP_USER",
+                               "SMTP_PASSWORD", "SMTP_SENDER", "SMTP_TLS",
+                               "ANTHROPIC_API_KEY"}]
+                    if nested:
+                        st.warning(
+                            f"`{nested[0]}` looks like a section header. Secrets "
+                            "must be flat — `SMTP_HOST = \"...\"` at the top "
+                            "level, not indented under `[something]`."
+                        )
+                else:
                     st.warning(
-                        "None are visible. Either they haven't been added under "
-                        "**Settings → Secrets**, or the app is still running the "
-                        "code from before secrets support was added — use "
-                        "**Manage app → Reboot** to pick up both."
+                        "The app sees no secrets at all. Either nothing has been "
+                        "added under **Settings → Secrets**, or the app is still "
+                        "running code from before secrets support existed — "
+                        "**Manage app → Reboot** picks up both."
                     )
         st.caption("**Feedback analysis**")
         from core import llm
