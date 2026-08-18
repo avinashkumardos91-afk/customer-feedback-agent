@@ -132,8 +132,15 @@ def validate(df: pd.DataFrame, mapping: dict[str, str | None]) -> IngestReport:
     work["_row"] = df.index + 2  # +2 => spreadsheet row number, header included
 
     for col in ("name", "email", "product"):
-        work[col] = work[col].astype(str).str.strip()
-        work.loc[work[col].str.lower().isin({"nan", "none", ""}), col] = ""
+        # fillna FIRST, and do not rely on astype(str) turning NaN into "nan".
+        # pandas 2.x did; pandas 3.x keeps NaN as NaN, so a version bump would
+        # silently stop catching blank cells — the exact failure this function
+        # exists to prevent.
+        work[col] = work[col].fillna("").astype(str).str.strip()
+        work.loc[
+            work[col].str.lower().isin({"nan", "none", "null", "n/a", "na", "-", ""}),
+            col,
+        ] = ""
     work["email"] = work["email"].str.lower()
 
     missing_name = work[work["name"] == ""]

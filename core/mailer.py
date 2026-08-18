@@ -7,6 +7,8 @@ owner can read exactly what each customer would have received.
 """
 from __future__ import annotations
 
+import html
+import re
 import secrets
 import smtplib
 from dataclasses import dataclass
@@ -99,6 +101,49 @@ def queue_email(to_email: str, subject: str, body: str, kind: str) -> int:
     )
 
 
+def _html_body(text: str, link: str | None) -> str:
+    """A plain-text body rendered as HTML, with the link as a real button.
+
+    Sent alongside the text version, never instead of it. Two reasons this is
+    worth the extra part: a long tokenised URL in a plain-text mail is subject
+    to quoted-printable soft wrapping and to clients that only auto-link part
+    of it, and a visible button is simply clicked more often than a bare URL —
+    which is the entire problem this tool exists to fix.
+    """
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    blocks = []
+    for para in paragraphs:
+        if link and link in para:
+            continue  # the raw URL is replaced by the button below
+        blocks.append(
+            f'<p style="margin:0 0 16px;line-height:1.6;color:#33333a">'
+            f'{html.escape(para).replace(chr(10), "<br>")}</p>'
+        )
+
+    button = ""
+    if link:
+        button = (
+            f'<table role="presentation" cellpadding="0" cellspacing="0" '
+            f'style="margin:26px 0"><tr><td bgcolor="#3538CD" '
+            f'style="border-radius:6px"><a href="{html.escape(link, quote=True)}" '
+            f'style="display:inline-block;padding:13px 30px;color:#ffffff;'
+            f'font-weight:600;text-decoration:none;font-size:15px">'
+            f'Share your feedback</a></td></tr></table>'
+            f'<p style="margin:0 0 16px;font-size:12px;color:#8a8a93">'
+            f'Or paste this into your browser:<br>'
+            f'<span style="word-break:break-all">{html.escape(link)}</span></p>'
+        )
+
+    return (
+        '<html><body style="margin:0;padding:24px;background:#f7f7f8;'
+        'font-family:-apple-system,Segoe UI,Arial,sans-serif">'
+        '<div style="max-width:540px;margin:0 auto;background:#ffffff;'
+        'border-radius:10px;padding:32px">'
+        + "".join(blocks) + button +
+        "</div></body></html>"
+    )
+
+
 def deliver(outbox_id: int, cfg: SMTPConfig) -> tuple[bool, str | None]:
     """Attempt real delivery. Returns (delivered, error)."""
     row = db.query_one("SELECT * FROM outbox WHERE id = ?", (outbox_id,))
@@ -119,6 +164,15 @@ def deliver(outbox_id: int, cfg: SMTPConfig) -> tuple[bool, str | None]:
     msg["From"] = cfg.sender
     msg["To"] = row["to_email"]
     msg.set_content(row["body"])
+
+    # Pull the feedback link back out of the body so the HTML part can turn it
+    # into a button. Reading it from the body rather than passing it separately
+    # keeps the outbox row the single source of truth for what was sent.
+    found = re.search(r"https?://\S+\?token=\S+", row["body"])
+    msg.add_alternative(
+        _html_body(row["body"], found.group(0) if found else None),
+        subtype="html",
+    )
 
     try:
         with smtplib.SMTP(cfg.host, cfg.port, timeout=20) as server:
